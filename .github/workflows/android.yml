@@ -1,0 +1,127 @@
+package com.example.deutscha1;
+
+import android.app.Activity;
+import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.*;
+import android.content.*;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.regex.*;
+
+public class MainActivity extends Activity {
+
+    final int BG = Color.rgb(9, 11, 18);
+    final int CARD = Color.rgb(19, 23, 34);
+    final int CARD2 = Color.rgb(28, 34, 49);
+    final int TEXT = Color.rgb(245, 247, 252);
+    final int MUTED = Color.rgb(165, 173, 191);
+    final int GOLD = Color.rgb(232, 185, 74);
+    final int BLUE = Color.rgb(76, 145, 255);
+    final int GREEN = Color.rgb(65, 205, 145);
+    final int RED = Color.rgb(245, 92, 102);
+
+    LinearLayout content;
+    TextView heartsView, xpView;
+
+    TextToSpeech tts;
+    SharedPreferences prefs;
+
+    int hearts = 5;
+    int xp = 0;
+
+    static class Word {
+        String de;
+        String ar;
+        String cat;
+
+        Word(String d, String a, String c) {
+            de = d;
+            ar = a;
+            cat = c;
+        }
+    }
+
+    ArrayList<Word> words = new ArrayList<>();
+    HashSet<String> fav = new HashSet<>();
+    Random rnd = new Random();
+
+    String[][] grammar = {
+            {"Ich ___ aus Berlin.", "komme", "kommt", "kommen", "komme"},
+            {"Du ___ Deutsch.", "lernst", "lernt", "lernen", "lernst"},
+            {"Er ___ müde.", "ist", "bin", "bist", "ist"},
+            {"Wir ___ in Hamburg.", "wohnen", "wohnt", "wohnst", "wohnen"},
+            {"___ Haus ist groß.", "Das", "Die", "Der", "Das"},
+            {"___ Frau ist nett.", "Die", "Das", "Der", "Die"},
+            {"Ich habe ___ Bruder.", "einen", "eine", "ein", "einen"},
+            {"Ich sehe ___ Tasche.", "die", "den", "das", "die"},
+            {"___ wohnst du?", "Wo", "Wer", "Was", "Wo"},
+            {"___ heißt du?", "Wie", "Wo", "Wann", "Wie"},
+            {"___ kommst du?", "Woher", "Wohin", "Wer", "Woher"},
+            {"___ gehst du?", "Wohin", "Woher", "Was", "Wohin"},
+            {"___ ist dein Geburtstag?", "Wann", "Wer", "Wo", "Wann"},
+            {"___ ist das?", "Wer", "Wo", "Wie", "Wer"},
+            {"___ kostet das?", "Wie viel", "Wo", "Wann", "Wie viel"},
+            {"Ich komme ___ Deutschland.", "aus", "mit", "für", "aus"},
+            {"Ich fahre ___ dem Bus.", "mit", "aus", "für", "mit"},
+            {"Das ist ___ Auto.", "ein", "eine", "einen", "ein"},
+            {"Das ist ___ Lampe.", "eine", "ein", "einen", "eine"},
+            {"___ du Deutsch?", "Sprichst", "Spricht", "Spreche", "Sprichst"},
+            {"___ Sie bitte langsam!", "Sprechen", "Sprich", "Sprecht", "Sprechen"},
+            {"___ das Fenster auf!", "Mach", "Macht", "Machen", "Mach"},
+            {"Kommt ihr morgen? — ___, wir kommen.", "Ja", "Nein", "Doch", "Ja"},
+            {"Kommt ihr heute nicht? — ___, wir kommen.", "Doch", "Ja", "Nein", "Doch"},
+            {"Mein Bruder ist nett. ___ ist 20.", "Er", "Sie", "Es", "Er"},
+            {"Anna ist hier. ___ lernt Deutsch.", "Sie", "Er", "Es", "Sie"},
+            {"Das Kind spielt. ___ ist glücklich.", "Es", "Er", "Sie", "Es"},
+            {"___ Bücher sind neu.", "Die", "Der", "Das", "Die"},
+            {"Ich ___ einen Kaffee.", "trinke", "trinkt", "trinkst", "trinke"},
+            {"Sie ___ heute nicht.", "arbeitet", "arbeiten", "arbeite", "arbeitet"}
+    };
+
+    String[][] listening = {
+            {"Bahnhof",
+                    "Der Zug nach Berlin fährt heute um zehn Uhr ab. Bitte gehen Sie zu Gleis drei.",
+                    "10 Uhr", "8 Uhr", "12 Uhr", "10 Uhr"},
+
+            {"Arzt",
+                    "Guten Tag. Ihr Termin beim Arzt ist am Montag um neun Uhr.",
+                    "Montag", "Dienstag", "Freitag", "Montag"},
+
+            {"Supermarkt",
+                    "Entschuldigung, wo ist die Milch? — Die Milch ist dort, neben dem Käse.",
+                    "Neben dem Käse", "Neben dem Brot", "Bei der Kasse", "Neben dem Käse"},
+
+            {"Telefon",
+                    "Hallo Maria, ich komme heute um sechs Uhr. Wir treffen uns vor dem Kino.",
+                    "6 Uhr", "5 Uhr", "7 Uhr", "6 Uhr"},
+
+            {"Wetter",
+                    "Heute ist es kalt und regnet. Morgen scheint die Sonne.",
+                    "Morgen scheint die Sonne",
+                    "Heute ist es heiß",
+                    "Morgen schneit es",
+                    "Morgen scheint die Sonne"},
+
+            {"Einkaufen",
+                    "Ich brauche zwei Brötchen und ein Kilo Äpfel.",
+                    "Zwei Brötchen und ein Kilo Äpfel",
+                    "Ein Brot und zwei Bananen",
+                    "Drei Brötchen",
+                    "Zwei Brötchen und ein Kilo Äpfel"},
+
+            {"Familie",
+                    "Mein Bruder heißt Ali. Er ist 18 Jahre alt.",
+                    "18", "16", "20", "18"},
+
+            {"Bus",
+                    "Der Bus Nummer fünf fährt zum Bahnhof.",
+                    "5", "4", "6", "5"},
+
+            {"Arbeit",
