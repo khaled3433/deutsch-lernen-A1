@@ -14,25 +14,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.9'
 
       - name: Create Android project
-        shell: bash
         run: |
-          set -e
-
           rm -rf DeutschA1Build
           mkdir -p DeutschA1Build/app/src/main/java/com/deutscha1/premium
-          mkdir -p DeutschA1Build/app/src/main/res/layout
           mkdir -p DeutschA1Build/app/src/main/res/values
 
           cat > DeutschA1Build/settings.gradle <<'EOF'
@@ -52,7 +48,7 @@ jobs:
               }
           }
 
-          rootProject.name = "DeutschA1Premium"
+          rootProject.name = "DeutschA1Build"
           include(":app")
           EOF
 
@@ -65,7 +61,6 @@ jobs:
           cat > DeutschA1Build/gradle.properties <<'EOF'
           android.useAndroidX=true
           android.nonTransitiveRClass=true
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           EOF
 
           cat > DeutschA1Build/app/build.gradle <<'EOF'
@@ -82,21 +77,26 @@ jobs:
                   minSdk 23
                   targetSdk 35
                   versionCode 1
-                  versionName "1.0"
-              }
-
-              buildTypes {
-                  debug {
-                      minifyEnabled false
-                      shrinkResources false
-                  }
-
-                  release {
-                      minifyEnabled false
-                      shrinkResources false
-                  }
+                  versionName '1.0'
               }
           }
+          EOF
+
+          cat > DeutschA1Build/app/src/main/res/values/strings.xml <<'EOF'
+          <resources>
+              <string name="app_name">Deutsch A1 Premium</string>
+          </resources>
+          EOF
+
+          cat > DeutschA1Build/app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:colorAccent">#FFD54F</item>
+                  <item name="android:navigationBarColor">#121212</item>
+                  <item name="android:statusBarColor">#121212</item>
+              </style>
+          </resources>
           EOF
 
           cat > DeutschA1Build/app/src/main/AndroidManifest.xml <<'EOF'
@@ -104,8 +104,7 @@ jobs:
 
               <application
                   android:allowBackup="true"
-                  android:label="Deutsch A1 Premium"
-                  android:supportsRtl="true"
+                  android:label="@string/app_name"
                   android:theme="@style/AppTheme">
 
                   <activity
@@ -124,21 +123,62 @@ jobs:
           </manifest>
           EOF
 
-          cat > DeutschA1Build/app/src/main/res/values/styles.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
+          cat > DeutschA1Build/app/src/main/java/com/deutscha1/premium/MainActivity.java <<'EOF'
+          package com.deutscha1.premium;
 
-              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
-                  <item name="android:fontFamily">sans</item>
-                  <item name="android:windowLightStatusBar">true</item>
-                  <item name="android:statusBarColor">#FFFFFF</item>
-                  <item name="android:navigationBarColor">#FFFFFF</item>
-                  <item name="android:colorAccent">#1976D2</item>
-              </style>
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.graphics.Color;
+          import android.view.Gravity;
+          import android.widget.LinearLayout;
+          import android.widget.TextView;
 
-          </resources>
+          public class MainActivity extends Activity {
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  LinearLayout layout = new LinearLayout(this);
+                  layout.setOrientation(LinearLayout.VERTICAL);
+                  layout.setGravity(Gravity.CENTER);
+                  layout.setPadding(30, 30, 30, 30);
+                  layout.setBackgroundColor(Color.rgb(18, 18, 18));
+
+                  TextView title = new TextView(this);
+                  title.setText("Deutsch A1 Premium");
+                  title.setTextColor(Color.WHITE);
+                  title.setTextSize(28);
+                  title.setGravity(Gravity.CENTER);
+
+                  TextView subtitle = new TextView(this);
+                  subtitle.setText("Deutsch lernen – A1");
+                  subtitle.setTextColor(Color.LTGRAY);
+                  subtitle.setTextSize(18);
+                  subtitle.setGravity(Gravity.CENTER);
+                  subtitle.setPadding(0, 30, 0, 0);
+
+                  layout.addView(title);
+                  layout.addView(subtitle);
+
+                  setContentView(layout);
+              }
+          }
           EOF
 
-          cat > DeutschA1Build/app/src/main/res/layout/activity_main.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <Linear
+      - name: Build APK
+        working-directory: DeutschA1Build
+        run: |
+          gradle assembleDebug --stacktrace
+
+      - name: Find APK
+        run: |
+          find DeutschA1Build -type f -name "*.apk" -print
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeutschA1-Premium-APK
+          path: DeutschA1Build/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
