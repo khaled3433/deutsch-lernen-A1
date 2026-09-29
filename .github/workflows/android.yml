@@ -1,954 +1,199 @@
-package com.deutscha1.premium;
-
-import android.app.Activity;
-import android.os.Bundle;
-import android.speech.tts.TextToSpeech;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.view.Gravity;
-import android.view.View;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
-import android.widget.Toast;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
-public class MainActivity extends Activity {
-
-    // =========================
-    // Deutsch A1 Premium
-    // =========================
-
-    private TextView xpText;
-    private TextView heartsText;
-    private TextView titleText;
-    private TextView contentTitle;
-    private TextView contentText;
-
-    private int xp = 0;
-    private int hearts = 5;
-    private int currentWord = 0;
-
-    private TextToSpeech tts;
-
-    private final List<Word> words = new ArrayList<>();
-
-    private final int BG = Color.rgb(15, 15, 20);
-    private final int CARD = Color.rgb(28, 28, 36);
-    private final int CARD2 = Color.rgb(38, 38, 48);
-    private final int WHITE = Color.WHITE;
-    private final int GRAY = Color.rgb(185, 185, 195);
-    private final int GOLD = Color.rgb(255, 210, 70);
-    private final int GREEN = Color.rgb(80, 210, 140);
-    private final int RED = Color.rgb(240, 80, 90);
-    private final int BLUE = Color.rgb(90, 160, 255);
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        createVocabulary();
-
-        tts = new TextToSpeech(this, status -> {
-            if (status == TextToSpeech.SUCCESS) {
-                tts.setLanguage(Locale.GERMANY);
-            }
-        });
-
-        showHome();
-    }
-
-    // =========================================================
-    // HOME
-    // =========================================================
-
-    private void showHome() {
-
-        LinearLayout root = createRoot();
-
-        // Header
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(20, 18, 20, 10);
-
-        LinearLayout titleBox = new LinearLayout(this);
-        titleBox.setOrientation(LinearLayout.VERTICAL);
-
-        titleText = text("Deutsch A1", 27, WHITE, true);
-        TextView premium = text("PREMIUM", 12, GOLD, true);
-
-        titleBox.addView(titleText);
-        titleBox.addView(premium);
-
-        LinearLayout.LayoutParams titleParams =
-                new LinearLayout.LayoutParams(0, -2, 1);
-        header.addView(titleBox, titleParams);
-
-        heartsText = text("♥ ♥ ♥ ♥ ♥", 18, RED, true);
-        heartsText.setGravity(Gravity.CENTER);
-        header.addView(heartsText);
-
-        root.addView(header);
-
-        // XP card
-        LinearLayout progressCard = card();
-
-        TextView level = text("⭐  Level 1", 18, WHITE, true);
-        progressCard.addView(level);
-
-        xpText = text("XP  " + xp + " / 100", 15, GOLD, false);
-        progressCard.addView(xpText);
-
-        TextView progress = text(
-                "Fortschritt: " + xp + "%",
-                13,
-                GRAY,
-                false
-        );
-        progressCard.addView(progress);
-
-        root.addView(progressCard);
-
-        // Welcome
-        TextView welcome = text(
-                "Willkommen! 👋\nLerne Deutsch auf A1-Niveau.",
-                20,
-                WHITE,
-                true
-        );
-        welcome.setPadding(22, 25, 22, 20);
-        root.addView(welcome);
-
-        // Sections
-        root.addView(sectionButton(
-                "📚  Wörter",
-                "1000 wichtige A1-Wörter",
-                v -> showWords()
-        ));
-
-        root.addView(sectionButton(
-                "📖  Grammatik",
-                "Grundlagen der deutschen Grammatik",
-                v -> showGrammar()
-        ));
-
-        root.addView(sectionButton(
-                "🎧  Hören",
-                "Hören und Aussprache trainieren",
-                v -> showListening()
-        ));
-
-        root.addView(sectionButton(
-                "✍️  Schreiben",
-                "Schreiben auf A1-Niveau",
-                v -> showWriting()
-        ));
-
-        // Daily button
-        Button daily = button("⭐  TÄGLICHE ÜBUNG");
-        daily.setOnClickListener(v -> dailyExercise());
-        root.addView(daily);
-
-        setContentView(scroll(root));
-    }
-
-    // =========================================================
-    // WORDS
-    // =========================================================
-
-    private void showWords() {
-
-        LinearLayout root = createRoot();
-
-        root.addView(topBar(
-                "📚 Wörter",
-                v -> showHome()
-        ));
-
-        Word word = words.get(currentWord);
-
-        LinearLayout wordCard = card();
-        wordCard.setGravity(Gravity.CENTER);
-
-        TextView counter = text(
-                (currentWord + 1) + " / " + words.size(),
-                14,
-                GRAY,
-                false
-        );
-        wordCard.addView(counter);
-
-        TextView german = text(
-                word.german,
-                36,
-                WHITE,
-                true
-        );
-        german.setGravity(Gravity.CENTER);
-        german.setPadding(10, 25, 10, 10);
-        wordCard.addView(german);
-
-        TextView article = text(
-                word.article,
-                18,
-                GOLD,
-                true
-        );
-        article.setGravity(Gravity.CENTER);
-        wordCard.addView(article);
-
-        TextView arabic = text(
-                word.arabic,
-                25,
-                BLUE,
-                true
-        );
-        arabic.setGravity(Gravity.CENTER);
-        arabic.setPadding(10, 20, 10, 25);
-        wordCard.addView(arabic);
-
-        root.addView(wordCard);
-
-        Button speak = button("🔊  Aussprache hören");
-        speak.setOnClickListener(v -> speakWord(word.german));
-        root.addView(speak);
-
-        Button learned = button("✓  Gelernt +10 XP");
-        learned.setOnClickListener(v -> {
-            xp += 10;
-
-            if (xp > 100) {
-                xp = 0;
-                Toast.makeText(
-                        this,
-                        "🎉 Neues Level!",
-                        Toast.LENGTH_SHORT
-                ).show();
-            }
-
-            currentWord++;
-
-            if (currentWord >= words.size()) {
-                currentWord = 0;
-            }
-
-            showWords();
-        });
-        root.addView(learned);
-
-        Button previous = button("←  Zurück");
-        previous.setOnClickListener(v -> {
-            currentWord--;
-
-            if (currentWord < 0) {
-                currentWord = words.size() - 1;
-            }
-
-            showWords();
-        });
-        root.addView(previous);
-
-        setContentView(scroll(root));
-    }
-
-    // =========================================================
-    // GRAMMAR
-    // =========================================================
-
-    private void showGrammar() {
-
-        LinearLayout root = createRoot();
-
-        root.addView(topBar(
-                "📖 Grammatik",
-                v -> showHome()
-        ));
-
-        addGrammarCard(
-                root,
-                "1. Personalpronomen",
-                "ich = أنا\n" +
-                "du = أنت\n" +
-                "er = هو\n" +
-                "sie = هي\n" +
-                "wir = نحن\n" +
-                "ihr = أنتم\n" +
-                "Sie = حضرتك / حضراتكم"
-        );
-
-        addGrammarCard(
-                root,
-                "2. Verb sein",
-                "ich bin = أنا أكون\n" +
-                "du bist = أنت تكون\n" +
-                "er ist = هو يكون\n" +
-                "sie ist = هي تكون\n" +
-                "wir sind = نحن نكون\n" +
-                "ihr seid = أنتم تكونون\n" +
-                "Sie sind = حضرتك تكون"
-        );
-
-        addGrammarCard(
-                root,
-                "3. Verb haben",
-                "ich habe = لدي\n" +
-                "du hast = لديك\n" +
-                "er hat = لديه\n" +
-                "sie hat = لديها\n" +
-                "wir haben = لدينا\n" +
-                "ihr habt = لديكم\n" +
-                "Sie haben = لديكم"
-        );
-
-        addGrammarCard(
-                root,
-                "4. Satzbau",
-                "Ich lerne Deutsch.\n" +
-                "أنا أتعلم الألمانية.\n\n" +
-                "Du wohnst in Berlin.\n" +
-                "أنت تسكن في برلين."
-        );
-
-        addGrammarCard(
-                root,
-                "5. Fragen",
-                "Wie heißt du?\n" +
-                "ما اسمك؟\n\n" +
-                "Wo wohnst du?\n" +
-                "أين تسكن؟\n\n" +
-                "Wie geht es dir?\n" +
-                "كيف حالك؟"
-        );
-
-        setContentView(scroll(root));
-    }
-
-    // =========================================================
-    // LISTENING
-    // =========================================================
-
-    private void showListening() {
-
-        LinearLayout root = createRoot();
-
-        root.addView(topBar(
-                "🎧 Hören",
-                v -> showHome()
-        ));
-
-        LinearLayout card = card();
-
-        TextView title = text(
-                "Hörtraining A1",
-                25,
-                WHITE,
-                true
-        );
-        card.addView(title);
-
-        TextView sentence = text(
-                "Guten Morgen! Wie geht es dir?",
-                23,
-                GOLD,
-                true
-        );
-        sentence.setPadding(0, 25, 0, 15);
-        card.addView(sentence);
-
-        TextView translation = text(
-                "صباح الخير! كيف حالك؟",
-                20,
-                BLUE,
-                true
-        );
-        card.addView(translation);
-
-        Button listen = button("🔊  Anhören");
-        listen.setOnClickListener(v ->
-                speakWord("Guten Morgen! Wie geht es dir?")
-        );
-
-        card.addView(listen);
-
-        root.addView(card);
-
-        LinearLayout card2 = card();
-
-        TextView ex = text(
-                "Weitere Übung",
-                22,
-                WHITE,
-                true
-        );
-        card2.addView(ex);
-
-        TextView exText = text(
-                "Ich heiße Anna und ich komme aus Deutschland.",
-                20,
-                GRAY,
-                false
-        );
-        exText.setPadding(0, 15, 0, 15);
-        card2.addView(exText);
-
-        Button listen2 = button("🔊  Anhören");
-        listen2.setOnClickListener(v ->
-                speakWord(
-                        "Ich heiße Anna und ich komme aus Deutschland."
-                )
-        );
-
-        card2.addView(listen2);
-        root.addView(card2);
-
-        setContentView(scroll(root));
-    }
-
-    // =========================================================
-    // WRITING
-    // =========================================================
-
-    private void showWriting() {
-
-        LinearLayout root = createRoot();
-
-        root.addView(topBar(
-                "✍️ Schreiben",
-                v -> showHome()
-        ));
-
-        addWritingExercise(
-                root,
-                "Aufgabe 1",
-                "Schreibe deinen Namen.",
-                "Ich heiße ________."
-        );
-
-        addWritingExercise(
-                root,
-                "Aufgabe 2",
-                "Schreibe, wo du wohnst.",
-                "Ich wohne in ________."
-        );
-
-        addWritingExercise(
-                root,
-                "Aufgabe 3",
-                "Schreibe, woher du kommst.",
-                "Ich komme aus ________."
-        );
-
-        addWritingExercise(
-                root,
-                "Aufgabe 4",
-                "Schreibe deinen Beruf.",
-                "Ich bin ________."
-        );
-
-        setContentView(scroll(root));
-    }
-
-    // =========================================================
-    // DAILY EXERCISE
-    // =========================================================
-
-    private void dailyExercise() {
-
-        if (hearts <= 0) {
-            Toast.makeText(
-                    this,
-                    "Keine Herzen mehr ❤️",
-                    Toast.LENGTH_LONG
-            ).show();
-            return;
-        }
-
-        hearts--;
-
-        xp += 20;
-
-        if (xp > 100) {
-            xp = 100;
-        }
-
-        updateHearts();
-
-        Toast.makeText(
-                this,
-                "✓ Übung abgeschlossen! +20 XP",
-                Toast.LENGTH_LONG
-        ).show();
-    }
-
-    // =========================================================
-    // UI HELPERS
-    // =========================================================
-
-    private LinearLayout createRoot() {
-
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(18, 12, 18, 25);
-        root.setBackgroundColor(BG);
-
-        return root;
-    }
-
-    private ScrollView scroll(View view) {
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.setBackgroundColor(BG);
-        scroll.addView(view);
-
-        return scroll;
-    }
-
-    private LinearLayout card() {
-
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(20, 20, 20, 20);
-        box.setBackgroundColor(CARD);
-
-        LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(
-                        -1,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                );
-
-        params.setMargins(0, 10, 0, 10);
-
-        box.setLayoutParams(params);
-
-        return box;
-    }
-
-    private TextView text(
-            String value,
-            float size,
-            int color,
-            boolean bold
-    ) {
-
-        TextView t = new TextView(this);
-
-        t.setText(value);
-        t.setTextSize(size);
-        t.setTextColor(color);
-        t.setPadding(4, 5, 4, 5);
-
-        if (bold) {
-            t.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        }
-
-        return t;
-    }
-
-    private Button button(String value) {
-
-        Button b = new Button(this);
-
-        b.setText(value);
-        b.setTextSize(16);
-        b.setTextColor(WHITE);
-        b.setAllCaps(false);
-        b.setPadding(15, 12, 15, 12);
-
-        LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(-1, -2);
-
-        params.setMargins(0, 8, 0, 8);
-
-        b.setLayoutParams(params);
-
-        return b;
-    }
-
-    private LinearLayout sectionButton(
-            String title,
-            String subtitle,
-            View.OnClickListener listener
-    ) {
-
-        LinearLayout box = card();
-
-        box.setBackgroundColor(CARD2);
-
-        TextView t = text(
-                title,
-                21,
-                WHITE,
-                true
-        );
-
-        TextView s = text(
-                subtitle,
-                14,
-                GRAY,
-                false
-        );
-
-        box.addView(t);
-        box.addView(s);
-
-        box.setOnClickListener(listener);
-
-        return box;
-    }
-
-    private LinearLayout topBar(
-            String title,
-            View.OnClickListener back
-    ) {
-
-        LinearLayout bar = new LinearLayout(this);
-        bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(0, 5, 0, 15);
-
-        Button backButton = new Button(this);
-        backButton.setText("←");
-        backButton.setTextSize(25);
-        backButton.setTextColor(WHITE);
-        backButton.setAllCaps(false);
-        backButton.setOnClickListener(back);
-
-        bar.addView(backButton);
-
-        TextView titleView = text(
-                title,
-                25,
-                WHITE,
-                true
-        );
-
-        LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(0, -2, 1);
-
-        titleView.setGravity(Gravity.CENTER);
-
-        bar.addView(titleView, params);
-
-        return bar;
-    }
-
-    private void addGrammarCard(
-            LinearLayout root,
-            String title,
-            String content
-    ) {
-
-        LinearLayout box = card();
-
-        box.addView(
-                text(
-                        title,
-                        21,
-                        GOLD,
-                        true
-                )
-        );
-
-        box.addView(
-                text(
-                        content,
-                        17,
-                        WHITE,
-                        false
-                )
-        );
-
-        root.addView(box);
-    }
-
-    private void addWritingExercise(
-            LinearLayout root,
-            String title,
-            String question,
-            String example
-    ) {
-
-        LinearLayout box = card();
-
-        box.addView(
-                text(
-                        title,
-                        20,
-                        GOLD,
-                        true
-                )
-        );
-
-        box.addView(
-                text(
-                        question,
-                        18,
-                        WHITE,
-                        true
-                )
-        );
-
-        box.addView(
-                text(
-                        example,
-                        17,
-                        GRAY,
-                        false
-                )
-        );
-
-        Button done = button("✓  Aufgabe erledigt");
-
-        done.setOnClickListener(v -> {
-            xp += 10;
-
-            if (xp > 100) {
-                xp = 100;
-            }
-
-            Toast.makeText(
-                    this,
-                    "+10 XP ⭐",
-                    Toast.LENGTH_SHORT
-            ).show();
-        });
-
-        box.addView(done);
-
-        root.addView(box);
-    }
-
-    // =========================================================
-    // TTS
-    // =========================================================
-
-    private void speakWord(String word) {
-
-        if (tts != null) {
-
-            tts.setLanguage(Locale.GERMANY);
-
-            tts.speak(
-                    word,
-                    TextToSpeech.QUEUE_FLUSH,
-                    null,
-                    "DEUTSCH_A1"
-            );
-        }
-    }
-
-    // =========================================================
-    // HEARTS
-    // =========================================================
-
-    private void updateHearts() {
-
-        if (heartsText == null) {
-            return;
-        }
-
-        StringBuilder result = new StringBuilder();
-
-        for (int i = 0; i < 5; i++) {
-
-            if (i < hearts) {
-                result.append("♥ ");
-            } else {
-                result.append("♡ ");
-            }
-        }
-
-        heartsText.setText(result.toString());
-    }
-
-    // =========================================================
-    // VOCABULARY
-    // =========================================================
-
-    private void createVocabulary() {
-
-        add("Hallo", "مرحبا", "");
-        add("Guten Morgen", "صباح الخير", "");
-        add("Guten Abend", "مساء الخير", "");
-        add("Gute Nacht", "تصبح على خير", "");
-        add("Danke", "شكرا", "");
-        add("Bitte", "من فضلك / عفوا", "");
-        add("Ja", "نعم", "");
-        add("Nein", "لا", "");
-        add("Entschuldigung", "عذرا", "");
-        add("Tschüss", "وداعا", "");
-
-        add("ich", "أنا", "");
-        add("du", "أنت", "");
-        add("er", "هو", "");
-        add("sie", "هي", "");
-        add("wir", "نحن", "");
-        add("ihr", "أنتم", "");
-        add("Sie", "حضرتك / حضراتكم", "");
-
-        add("sein", "يكون", "das");
-        add("haben", "يملك / لديه", "das");
-        add("machen", "يفعل", "das");
-        add("gehen", "يذهب", "das");
-        add("kommen", "يأتي", "das");
-        add("wohnen", "يسكن", "das");
-        add("lernen", "يتعلم", "das");
-        add("sprechen", "يتحدث", "das");
-        add("schreiben", "يكتب", "das");
-        add("lesen", "يقرأ", "das");
-        add("hören", "يسمع", "das");
-        add("sehen", "يرى", "das");
-        add("essen", "يأكل", "das");
-        add("trinken", "يشرب", "das");
-        add("schlafen", "ينام", "das");
-        add("arbeiten", "يعمل", "das");
-        add("kaufen", "يشتري", "das");
-        add("bezahlen", "يدفع", "das");
-
-        add("das Haus", "البيت", "das");
-        add("die Wohnung", "الشقة", "die");
-        add("das Zimmer", "الغرفة", "das");
-        add("die Küche", "المطبخ", "die");
-        add("das Bad", "الحمام", "das");
-        add("die Tür", "الباب", "die");
-        add("das Fenster", "النافذة", "das");
-        add("der Tisch", "الطاولة", "der");
-        add("der Stuhl", "الكرسي", "der");
-        add("das Bett", "السرير", "das");
-
-        add("die Familie", "العائلة", "die");
-        add("die Mutter", "الأم", "die");
-        add("der Vater", "الأب", "der");
-        add("der Bruder", "الأخ", "der");
-        add("die Schwester", "الأخت", "die");
-        add("das Kind", "الطفل", "das");
-        add("der Mann", "الرجل", "der");
-        add("die Frau", "المرأة", "die");
-        add("der Freund", "الصديق", "der");
-        add("die Freundin", "الصديقة", "die");
-
-        add("die Schule", "المدرسة", "die");
-        add("der Lehrer", "المعلم", "der");
-        add("die Lehrerin", "المعلمة", "die");
-        add("der Schüler", "الطالب", "der");
-        add("die Schülerin", "الطالبة", "die");
-        add("das Buch", "الكتاب", "das");
-        add("der Stift", "القلم", "der");
-        add("die Sprache", "اللغة", "die");
-        add("das Wort", "الكلمة", "das");
-        add("der Satz", "الجملة", "der");
-
-        add("das Essen", "الطعام", "das");
-        add("das Brot", "الخبز", "das");
-        add("das Wasser", "الماء", "das");
-        add("die Milch", "الحليب", "die");
-        add("der Kaffee", "القهوة", "der");
-        add("der Tee", "الشاي", "der");
-        add("der Apfel", "التفاحة", "der");
-        add("die Banane", "الموزة", "die");
-        add("das Fleisch", "اللحم", "das");
-        add("der Käse", "الجبن", "der");
-
-        add("der Bahnhof", "محطة القطار", "der");
-        add("der Bus", "الحافلة", "der");
-        add("der Zug", "القطار", "der");
-        add("das Auto", "السيارة", "das");
-        add("das Fahrrad", "الدراجة", "das");
-        add("die Straße", "الشارع", "die");
-        add("die Stadt", "المدينة", "die");
-        add("das Land", "البلد", "das");
-        add("der Flughafen", "المطار", "der");
-        add("das Ticket", "التذكرة", "das");
-
-        add("heute", "اليوم", "");
-        add("morgen", "غدا", "");
-        add("gestern", "أمس", "");
-        add("jetzt", "الآن", "");
-        add("später", "لاحقا", "");
-        add("hier", "هنا", "");
-        add("dort", "هناك", "");
-        add("links", "يسار", "");
-        add("rechts", "يمين", "");
-        add("oben", "فوق", "");
-
-        add("groß", "كبير", "");
-        add("klein", "صغير", "");
-        add("gut", "جيد", "");
-        add("schlecht", "سيئ", "");
-        add("schön", "جميل", "");
-        add("neu", "جديد", "");
-        add("alt", "قديم / كبير بالعمر", "");
-        add("schnell", "سريع", "");
-        add("langsam", "بطيء", "");
-        add("leicht", "سهل / خفيف", "");
-
-        add("eins", "واحد", "");
-        add("zwei", "اثنان", "");
-        add("drei", "ثلاثة", "");
-        add("vier", "أربعة", "");
-        add("fünf", "خمسة", "");
-        add("sechs", "ستة", "");
-        add("sieben", "سبعة", "");
-        add("acht", "ثمانية", "");
-        add("neun", "تسعة", "");
-        add("zehn", "عشرة", "");
-    }
-
-    private void add(
-            String german,
-            String arabic,
-            String article
-    ) {
-
-        words.add(
-                new Word(
-                        german,
-                        arabic,
-                        article
-                )
-        );
-    }
-
-    // =========================================================
-    // WORD CLASS
-    // =========================================================
-
-    private static class Word {
-
-        String german;
-        String arabic;
-        String article;
-
-        Word(
-                String german,
-                String arabic,
-                String article
-        ) {
-
-            this.german = german;
-            this.arabic = arabic;
-            this.article = article;
-        }
-    }
-
-    // =========================================================
-    // CLEANUP
-    // =========================================================
-
-    @Override
-    protected void onDestroy() {
-
-        if (tts != null) {
-            tts.stop();
-            tts.shutdown();
-        }
-
-        super.onDestroy();
-    }
-}
+name: Deutsch A1 Premium - Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # 1. تحميل ملفات المشروع من GitHub
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Java 17
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # 3. Gradle 8.9
+      - name: Setup Gradle 8.9
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.9'
+
+      # 4. البحث عن ملف ZIP
+      - name: Find project ZIP
+        run: |
+          echo "Searching for Android project ZIP..."
+
+          ZIP_FILE=$(find . -maxdepth 2 -type f \
+            \( -iname "*.zip" \) \
+            | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: No ZIP file found."
+            exit 1
+          fi
+
+          echo "ZIP found:"
+          echo "$ZIP_FILE"
+
+          echo "ZIP_FILE=$ZIP_FILE" >> "$GITHUB_ENV"
+
+      # 5. فك المشروع
+      - name: Extract Android project
+        run: |
+          rm -rf AndroidProject
+          mkdir -p AndroidProject
+
+          unzip -q "$ZIP_FILE" -d AndroidProject
+
+          echo "Extracted files:"
+          find AndroidProject -maxdepth 4 -type f | head -100
+
+      # 6. العثور على مجلد مشروع Android الحقيقي
+      - name: Locate Android project
+        run: |
+          SETTINGS=$(find AndroidProject \
+            -type f \
+            \( -name "settings.gradle" -o -name "settings.gradle.kts" \) \
+            | head -n 1)
+
+          if [ -z "$SETTINGS" ]; then
+            echo "ERROR: settings.gradle not found."
+            echo "The ZIP does not contain a valid Android project."
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS")
+
+          echo "Android project:"
+          echo "$PROJECT_DIR"
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      # 7. التأكد من وجود التطبيق
+      - name: Verify Android project
+        run: |
+          echo "Project directory:"
+          ls -la "$PROJECT_DIR"
+
+          echo ""
+          echo "Searching for app module..."
+
+          find "$PROJECT_DIR" \
+            -maxdepth 4 \
+            -type f \
+            \( -name "build.gradle" -o -name "build.gradle.kts" \) \
+            -print
+
+          if [ ! -d "$PROJECT_DIR/app" ]; then
+            echo "ERROR: app module not found."
+            exit 1
+          fi
+
+      # 8. التأكد من الكلمات
+      - name: Check vocabulary
+        run: |
+          echo "Searching for words.json..."
+
+          WORDS=$(find "$PROJECT_DIR/app/src/main" \
+            -type f \
+            -name "words.json" \
+            | head -n 1 || true)
+
+          if [ -n "$WORDS" ]; then
+            echo "Vocabulary file found:"
+            echo "$WORDS"
+
+            echo ""
+            echo "Vocabulary size:"
+            grep -o '"german"' "$WORDS" | wc -l || true
+          else
+            echo "WARNING: words.json was not found."
+            echo "The application will be built using the files included in the project."
+          fi
+
+      # 9. صلاحيات Gradle
+      - name: Prepare Gradle
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            echo "Using project Gradle wrapper."
+          else
+            echo "No Gradle wrapper found."
+            echo "Using installed Gradle 8.9."
+          fi
+
+      # 10. بناء APK
+      - name: Build Debug APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew clean assembleDebug --stacktrace
+          else
+            gradle clean assembleDebug --stacktrace
+          fi
+
+      # 11. العثور على APK
+      - name: Locate APK
+        run: |
+          echo "Searching for generated APK..."
+
+          find "$PROJECT_DIR" \
+            -type f \
+            -name "*.apk" \
+            -print
+
+          APK=$(find "$PROJECT_DIR" \
+            -type f \
+            -path "*/outputs/apk/debug/*.apk" \
+            | head -n 1)
+
+          if [ -z "$APK" ]; then
+            echo "ERROR: APK was not generated."
+            exit 1
+          fi
+
+          echo ""
+          echo "APK found:"
+          echo "$APK"
+
+          echo ""
+          echo "APK size:"
+          ls -lh "$APK"
+
+          echo "APK=$APK" >> "$GITHUB_ENV"
+
+      # 12. رفع APK كـ Artifact
+      - name: Upload Deutsch A1 Premium APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Deutsch-A1-Premium-APK
+          path: ${{ env.APK }}
+          if-no-files-found: error
+          retention-days: 7
+
+      # 13. إظهار نجاح البناء
+      - name: Build completed
+        run: |
+          echo "======================================"
+          echo "Deutsch A1 Premium APK BUILD SUCCESS"
+          echo "======================================"
+          echo "APK:"
+          echo "$APK"
+          echo ""
+          echo "The APK is available in the workflow Artifacts."
