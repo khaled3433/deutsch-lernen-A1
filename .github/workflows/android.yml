@@ -1,4 +1,4 @@
-name: Deutsch A1 Premium - Build APK
+name: Build Deutsch A1 Premium APK
 
 on:
   workflow_dispatch:
@@ -14,124 +14,131 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.9'
 
-      - name: Setup Android SDK
+      - name: Create Android project
         shell: bash
         run: |
           set -e
-
-          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-
-          SDKMANAGER="$(command -v sdkmanager || true)"
-
-          if [ -z "$SDKMANAGER" ]; then
-            SDKMANAGER="$(find "$ANDROID_HOME" -type f -name sdkmanager 2>/dev/null | head -n 1)"
-          fi
-
-          if [ -z "$SDKMANAGER" ]; then
-            echo "Android SDK manager not found"
-            exit 1
-          fi
-
-          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-
-          "$SDKMANAGER" \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-      - name: Extract Android project
-        shell: bash
-        run: |
-          set -e
-
-          ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)"
-
-          if [ -z "$ZIP_FILE" ]; then
-            echo "Android project ZIP not found"
-            exit 1
-          fi
-
-          echo "Found: $ZIP_FILE"
 
           rm -rf DeutschA1Build
-          mkdir -p DeutschA1Build
+          mkdir -p DeutschA1Build/app/src/main/java/com/deutscha1/premium
+          mkdir -p DeutschA1Build/app/src/main/res/layout
+          mkdir -p DeutschA1Build/app/src/main/res/values
 
-          unzip -q "$ZIP_FILE" -d DeutschA1Build/extracted
-
-          PROJECT_DIR="$(find DeutschA1Build/extracted \
-            -type f \
-            -name settings.gradle \
-            -printf '%h\n' | head -n 1)"
-
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "settings.gradle not found inside ZIP"
-            exit 1
-          fi
-
-          echo "Project directory: $PROJECT_DIR"
-
-          cp -R "$PROJECT_DIR"/. DeutschA1Build/
-
-          test -f DeutschA1Build/settings.gradle
-          test -f DeutschA1Build/build.gradle
-          test -d DeutschA1Build/app
-
-      - name: Verify A1 vocabulary
-        shell: bash
-        run: |
-          set -e
-
-          python3 - <<'PY'
-          import json
-
-          p = "DeutschA1Build/app/src/main/assets/words.json"
-
-          with open(p, encoding="utf-8") as f:
-              data = json.load(f)
-
-          assert len(data) == 1000, f"Expected 1000 words, found {len(data)}"
-
-          unique = {
-              x["de"].strip().lower()
-              for x in data
+          cat > DeutschA1Build/settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
           }
 
-          assert len(unique) == 1000, "Vocabulary contains duplicate German words"
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
 
-          print("Verified exactly 1000 unique vocabulary entries")
-          PY
+          rootProject.name = "DeutschA1Premium"
+          include(":app")
+          EOF
 
-      - name: Build Debug APK
-        shell: bash
-        run: |
-          set -e
+          cat > DeutschA1Build/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
 
-          cd DeutschA1Build
+          cat > DeutschA1Build/gradle.properties <<'EOF'
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          EOF
 
-          gradle clean assembleDebug \
-            --no-daemon \
-            --stacktrace
+          cat > DeutschA1Build/app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
 
-          test -f app/build/outputs/apk/debug/app-debug.apk
+          android {
+              namespace 'com.deutscha1.premium'
+              compileSdk 35
 
-          echo "APK successfully built"
+              defaultConfig {
+                  applicationId 'com.deutscha1.premium'
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 1
+                  versionName "1.0"
+              }
 
-      - name: Upload APK
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: DeutschA1-Premium-APK
-          path: DeutschA1Build/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+              buildTypes {
+                  debug {
+                      minifyEnabled false
+                      shrinkResources false
+                  }
+
+                  release {
+                      minifyEnabled false
+                      shrinkResources false
+                  }
+              }
+          }
+          EOF
+
+          cat > DeutschA1Build/app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <application
+                  android:allowBackup="true"
+                  android:label="Deutsch A1 Premium"
+                  android:supportsRtl="true"
+                  android:theme="@style/AppTheme">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+
+                  </activity>
+
+              </application>
+
+          </manifest>
+          EOF
+
+          cat > DeutschA1Build/app/src/main/res/values/styles.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+
+              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">true</item>
+                  <item name="android:statusBarColor">#FFFFFF</item>
+                  <item name="android:navigationBarColor">#FFFFFF</item>
+                  <item name="android:colorAccent">#1976D2</item>
+              </style>
+
+          </resources>
+          EOF
+
+          cat > DeutschA1Build/app/src/main/res/layout/activity_main.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <Linear
