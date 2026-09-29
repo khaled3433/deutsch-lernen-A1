@@ -1,4 +1,4 @@
-name: Deutsch A1 Premium - Build APK
+name: Deutsch A1 Premium - Full App
 
 on:
   workflow_dispatch:
@@ -11,189 +11,339 @@ permissions:
 
 jobs:
   build:
-    name: Build Android APK
+    name: Build Deutsch A1 Premium
     runs-on: ubuntu-latest
 
     steps:
 
-      # 1. تحميل ملفات المشروع من GitHub
-      - name: Checkout repository
+      # =========================================================
+      # 1. GitHub
+      # =========================================================
+      - name: Checkout
         uses: actions/checkout@v4
 
+      # =========================================================
       # 2. Java 17
+      # =========================================================
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
+      # =========================================================
       # 3. Gradle 8.9
+      # =========================================================
       - name: Setup Gradle 8.9
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.9'
 
-      # 4. البحث عن ملف ZIP
-      - name: Find project ZIP
+      # =========================================================
+      # 4. Create Android project
+      # =========================================================
+      - name: Create project
+        shell: bash
         run: |
-          echo "Searching for Android project ZIP..."
 
-          ZIP_FILE=$(find . -maxdepth 2 -type f \
-            \( -iname "*.zip" \) \
-            | head -n 1)
+          rm -rf DeutschA1Premium
 
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No ZIP file found."
-            exit 1
-          fi
+          mkdir -p DeutschA1Premium
+          mkdir -p DeutschA1Premium/app/src/main/java/com/deutscha1/premium
+          mkdir -p DeutschA1Premium/app/src/main/res/drawable
+          mkdir -p DeutschA1Premium/app/src/main/res/mipmap-hdpi
+          mkdir -p DeutschA1Premium/app/src/main/res/mipmap-mdpi
+          mkdir -p DeutschA1Premium/app/src/main/res/mipmap-xhdpi
+          mkdir -p DeutschA1Premium/app/src/main/res/mipmap-xxhdpi
+          mkdir -p DeutschA1Premium/app/src/main/res/mipmap-xxxhdpi
+          mkdir -p DeutschA1Premium/app/src/main/assets
 
-          echo "ZIP found:"
-          echo "$ZIP_FILE"
+          cd DeutschA1Premium
 
-          echo "ZIP_FILE=$ZIP_FILE" >> "$GITHUB_ENV"
+          # -----------------------------------------------------
+          # settings.gradle
+          # -----------------------------------------------------
 
-      # 5. فك المشروع
-      - name: Extract Android project
-        run: |
-          rm -rf AndroidProject
-          mkdir -p AndroidProject
+          cat > settings.gradle <<'EOF'
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
 
-          unzip -q "$ZIP_FILE" -d AndroidProject
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
 
-          echo "Extracted files:"
-          find AndroidProject -maxdepth 4 -type f | head -100
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
 
-      # 6. العثور على مجلد مشروع Android الحقيقي
-      - name: Locate Android project
-        run: |
-          SETTINGS=$(find AndroidProject \
-            -type f \
-            \( -name "settings.gradle" -o -name "settings.gradle.kts" \) \
-            | head -n 1)
+rootProject.name = "DeutschA1Premium"
+include(":app")
+EOF
 
-          if [ -z "$SETTINGS" ]; then
-            echo "ERROR: settings.gradle not found."
-            echo "The ZIP does not contain a valid Android project."
-            exit 1
-          fi
+          # -----------------------------------------------------
+          # root build.gradle
+          # -----------------------------------------------------
 
-          PROJECT_DIR=$(dirname "$SETTINGS")
+          cat > build.gradle <<'EOF'
+plugins {
+    id 'com.android.application' version '8.7.0' apply false
+}
+EOF
 
-          echo "Android project:"
-          echo "$PROJECT_DIR"
+          # -----------------------------------------------------
+          # gradle.properties
+          # -----------------------------------------------------
 
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          cat > gradle.properties <<'EOF'
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+android.useAndroidX=true
+android.nonTransitiveRClass=true
+EOF
 
-      # 7. التأكد من وجود التطبيق
-      - name: Verify Android project
-        run: |
-          echo "Project directory:"
-          ls -la "$PROJECT_DIR"
+          # -----------------------------------------------------
+          # app/build.gradle
+          # -----------------------------------------------------
 
-          echo ""
-          echo "Searching for app module..."
+          cat > app/build.gradle <<'EOF'
+plugins {
+    id 'com.android.application'
+}
 
-          find "$PROJECT_DIR" \
-            -maxdepth 4 \
-            -type f \
-            \( -name "build.gradle" -o -name "build.gradle.kts" \) \
-            -print
+android {
+    namespace 'com.deutscha1.premium'
+    compileSdk 35
 
-          if [ ! -d "$PROJECT_DIR/app" ]; then
-            echo "ERROR: app module not found."
-            exit 1
-          fi
+    defaultConfig {
+        applicationId 'com.deutscha1.premium'
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
 
-      # 8. التأكد من الكلمات
-      - name: Check vocabulary
-        run: |
-          echo "Searching for words.json..."
+    buildTypes {
+        debug {
+            minifyEnabled false
+            shrinkResources false
+        }
 
-          WORDS=$(find "$PROJECT_DIR/app/src/main" \
-            -type f \
-            -name "words.json" \
-            | head -n 1 || true)
+        release {
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
 
-          if [ -n "$WORDS" ]; then
-            echo "Vocabulary file found:"
-            echo "$WORDS"
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
 
-            echo ""
-            echo "Vocabulary size:"
-            grep -o '"german"' "$WORDS" | wc -l || true
-          else
-            echo "WARNING: words.json was not found."
-            echo "The application will be built using the files included in the project."
-          fi
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.core:core:1.15.0'
+}
+EOF
 
-      # 9. صلاحيات Gradle
-      - name: Prepare Gradle
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
-            echo "Using project Gradle wrapper."
-          else
-            echo "No Gradle wrapper found."
-            echo "Using installed Gradle 8.9."
-          fi
+          # -----------------------------------------------------
+          # AndroidManifest.xml
+          # -----------------------------------------------------
 
-      # 10. بناء APK
-      - name: Build Debug APK
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          if [ -f "./gradlew" ]; then
-            ./gradlew clean assembleDebug --stacktrace
-          else
-            gradle clean assembleDebug --stacktrace
-          fi
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-      # 11. العثور على APK
-      - name: Locate APK
-        run: |
-          echo "Searching for generated APK..."
+    <application
+        android:allowBackup="true"
+        android:label="Deutsch A1 Premium"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme"
+        android:usesCleartextTraffic="false">
 
-          find "$PROJECT_DIR" \
-            -type f \
-            -name "*.apk" \
-            -print
+        <activity
+            android:name=".MainActivity"
+            android:screenOrientation="portrait"
+            android:exported="true">
 
-          APK=$(find "$PROJECT_DIR" \
-            -type f \
-            -path "*/outputs/apk/debug/*.apk" \
-            | head -n 1)
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
 
-          if [ -z "$APK" ]; then
-            echo "ERROR: APK was not generated."
-            exit 1
-          fi
+        </activity>
 
-          echo ""
-          echo "APK found:"
-          echo "$APK"
+    </application>
 
-          echo ""
-          echo "APK size:"
-          ls -lh "$APK"
+</manifest>
+EOF
 
-          echo "APK=$APK" >> "$GITHUB_ENV"
+          mkdir -p app/src/main/res/values
 
-      # 12. رفع APK كـ Artifact
-      - name: Upload Deutsch A1 Premium APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Deutsch-A1-Premium-APK
-          path: ${{ env.APK }}
-          if-no-files-found: error
-          retention-days: 7
+          # -----------------------------------------------------
+          # styles.xml
+          # -----------------------------------------------------
 
-      # 13. إظهار نجاح البناء
-      - name: Build completed
-        run: |
-          echo "======================================"
-          echo "Deutsch A1 Premium APK BUILD SUCCESS"
-          echo "======================================"
-          echo "APK:"
-          echo "$APK"
-          echo ""
-          echo "The APK is available in the workflow Artifacts."
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+<resources>
+
+    <style name="AppTheme"
+        parent="Theme.AppCompat.NoActionBar">
+
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">#10131A</item>
+        <item name="android:navigationBarColor">#10131A</item>
+        <item name="android:windowActionModeOverlay">true</item>
+
+    </style>
+
+</resources>
+EOF
+
+          # =====================================================
+          # MainActivity.java
+          # =====================================================
+
+          cat > app/src/main/java/com/deutscha1/premium/MainActivity.java <<'EOF'
+package com.deutscha1.premium;
+
+import android.app.*;
+import android.os.*;
+import android.content.*;
+import android.graphics.Color;
+import android.speech.tts.TextToSpeech;
+import android.view.*;
+import android.widget.*;
+import java.util.*;
+import java.util.Locale;
+
+public class MainActivity extends Activity {
+
+    // =========================================================
+    // DATA
+    // =========================================================
+
+    static class Word {
+
+        String german;
+        String arabic;
+        String example;
+
+        Word(String g, String a, String e) {
+            german = g;
+            arabic = a;
+            example = e;
+        }
+    }
+
+    ArrayList<Word> words = new ArrayList<>();
+
+    // =========================================================
+    // USER PROGRESS
+    // =========================================================
+
+    android.content.SharedPreferences prefs;
+
+    int xp = 0;
+    int hearts = 5;
+    int learned = 0;
+
+    TextToSpeech tts;
+
+    LinearLayout root;
+    TextView title;
+    TextView stats;
+
+    int page = 0;
+
+    // =========================================================
+    // COLORS
+    // =========================================================
+
+    int BG = Color.rgb(14, 17, 23);
+    int CARD = Color.rgb(25, 29, 38);
+    int CARD2 = Color.rgb(31, 36, 47);
+    int TEXT = Color.WHITE;
+    int MUTED = Color.rgb(180, 185, 195);
+    int GREEN = Color.rgb(75, 210, 130);
+    int BLUE = Color.rgb(70, 150, 255);
+    int GOLD = Color.rgb(255, 200, 70);
+    int RED = Color.rgb(240, 80, 90);
+
+    // =========================================================
+    // CREATE
+    // =========================================================
+
+    @Override
+    public void onCreate(Bundle b) {
+
+        super.onCreate(b);
+
+        prefs = getSharedPreferences(
+                "deutsch_a1",
+                MODE_PRIVATE
+        );
+
+        xp = prefs.getInt("xp", 0);
+        hearts = prefs.getInt("hearts", 5);
+        learned = prefs.getInt("learned", 0);
+
+        createWords();
+
+        tts = new TextToSpeech(
+                this,
+                status -> {
+
+                    if (status == TextToSpeech.SUCCESS) {
+
+                        tts.setLanguage(
+                                Locale.GERMAN
+                        );
+
+                    }
+
+                }
+        );
+
+        showHome();
+    }
+
+    // =========================================================
+    // WORD DATABASE
+    // =========================================================
+
+    void createWords() {
+
+        add("ich","أنا","Ich bin hier.");
+        add("du","أنت","Du bist nett.");
+        add("er","هو","Er ist hier.");
+        add("sie","هي","Sie ist hier.");
+        add("wir","نحن","Wir lernen Deutsch.");
+        add("ihr","أنتم","Ihr seid nett.");
+        add("Sie","حضرتك","Wie heißen Sie?");
+        add("sein","يكون","Ich bin müde.");
+        add("haben","يملك","Ich habe Zeit.");
+        add("machen","يفعل","Was machst du?");
+        add("gehen","يذهب","Ich gehe nach Hause.");
+        add("kommen","يأتي","Ich komme aus Deutschland.");
+        add("wohnen","يسكن","Ich wohne in Berlin.");
+        add("lernen","يتعلم","Ich lerne Deutsch.");
+        add("sprechen","يتحدث","Ich spreche Deutsch.");
+        add("lesen","يقرأ","Ich lese ein Buch.");
+        add("schreiben","يكتب","Ich schreibe einen Brief.");
+        add("hören","يسمع","Ich höre Musik.");
+        add("sehen","يرى","Ich sehe dich.");
+        add("essen","يأكل","Ich esse Brot.");
+        add("trinken","يشرب","Ich trinke Wasser.");
+        add("schlafen","ينام","Ich schlafe.");
+        add("arbeiten","يعمل","Ich arbeite heute.");
+        add("kaufen","يشتري","Ich kaufe Brot.");
+        add("verkaufen","يبيع","Er verkauft das Auto.");
+        add("bezahlen","يدفع","Ich bezahle die Rechnung.");
+        add("fragen","يسأل","Ich frage den Lehrer.");
+        add("antworten
