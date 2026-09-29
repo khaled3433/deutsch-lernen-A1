@@ -1,127 +1,137 @@
-package com.example.deutscha1;
+name: Deutsch A1 Premium - Build APK
 
-import android.app.Activity;
-import android.os.Bundle;
-import android.speech.tts.TextToSpeech;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
-import android.view.Gravity;
-import android.view.View;
-import android.widget.*;
-import android.content.*;
-import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.regex.*;
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
 
-public class MainActivity extends Activity {
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-    final int BG = Color.rgb(9, 11, 18);
-    final int CARD = Color.rgb(19, 23, 34);
-    final int CARD2 = Color.rgb(28, 34, 49);
-    final int TEXT = Color.rgb(245, 247, 252);
-    final int MUTED = Color.rgb(165, 173, 191);
-    final int GOLD = Color.rgb(232, 185, 74);
-    final int BLUE = Color.rgb(76, 145, 255);
-    final int GREEN = Color.rgb(65, 205, 145);
-    final int RED = Color.rgb(245, 92, 102);
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    LinearLayout content;
-    TextView heartsView, xpView;
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-    TextToSpeech tts;
-    SharedPreferences prefs;
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.9'
 
-    int hearts = 5;
-    int xp = 0;
+      - name: Setup Android SDK
+        shell: bash
+        run: |
+          set -e
 
-    static class Word {
-        String de;
-        String ar;
-        String cat;
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
 
-        Word(String d, String a, String c) {
-            de = d;
-            ar = a;
-            cat = c;
-        }
-    }
+          SDKMANAGER="$(command -v sdkmanager || true)"
 
-    ArrayList<Word> words = new ArrayList<>();
-    HashSet<String> fav = new HashSet<>();
-    Random rnd = new Random();
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME" -type f -name sdkmanager 2>/dev/null | head -n 1)"
+          fi
 
-    String[][] grammar = {
-            {"Ich ___ aus Berlin.", "komme", "kommt", "kommen", "komme"},
-            {"Du ___ Deutsch.", "lernst", "lernt", "lernen", "lernst"},
-            {"Er ___ müde.", "ist", "bin", "bist", "ist"},
-            {"Wir ___ in Hamburg.", "wohnen", "wohnt", "wohnst", "wohnen"},
-            {"___ Haus ist groß.", "Das", "Die", "Der", "Das"},
-            {"___ Frau ist nett.", "Die", "Das", "Der", "Die"},
-            {"Ich habe ___ Bruder.", "einen", "eine", "ein", "einen"},
-            {"Ich sehe ___ Tasche.", "die", "den", "das", "die"},
-            {"___ wohnst du?", "Wo", "Wer", "Was", "Wo"},
-            {"___ heißt du?", "Wie", "Wo", "Wann", "Wie"},
-            {"___ kommst du?", "Woher", "Wohin", "Wer", "Woher"},
-            {"___ gehst du?", "Wohin", "Woher", "Was", "Wohin"},
-            {"___ ist dein Geburtstag?", "Wann", "Wer", "Wo", "Wann"},
-            {"___ ist das?", "Wer", "Wo", "Wie", "Wer"},
-            {"___ kostet das?", "Wie viel", "Wo", "Wann", "Wie viel"},
-            {"Ich komme ___ Deutschland.", "aus", "mit", "für", "aus"},
-            {"Ich fahre ___ dem Bus.", "mit", "aus", "für", "mit"},
-            {"Das ist ___ Auto.", "ein", "eine", "einen", "ein"},
-            {"Das ist ___ Lampe.", "eine", "ein", "einen", "eine"},
-            {"___ du Deutsch?", "Sprichst", "Spricht", "Spreche", "Sprichst"},
-            {"___ Sie bitte langsam!", "Sprechen", "Sprich", "Sprecht", "Sprechen"},
-            {"___ das Fenster auf!", "Mach", "Macht", "Machen", "Mach"},
-            {"Kommt ihr morgen? — ___, wir kommen.", "Ja", "Nein", "Doch", "Ja"},
-            {"Kommt ihr heute nicht? — ___, wir kommen.", "Doch", "Ja", "Nein", "Doch"},
-            {"Mein Bruder ist nett. ___ ist 20.", "Er", "Sie", "Es", "Er"},
-            {"Anna ist hier. ___ lernt Deutsch.", "Sie", "Er", "Es", "Sie"},
-            {"Das Kind spielt. ___ ist glücklich.", "Es", "Er", "Sie", "Es"},
-            {"___ Bücher sind neu.", "Die", "Der", "Das", "Die"},
-            {"Ich ___ einen Kaffee.", "trinke", "trinkt", "trinkst", "trinke"},
-            {"Sie ___ heute nicht.", "arbeitet", "arbeiten", "arbeite", "arbeitet"}
-    };
+          if [ -z "$SDKMANAGER" ]; then
+            echo "Android SDK manager not found"
+            exit 1
+          fi
 
-    String[][] listening = {
-            {"Bahnhof",
-                    "Der Zug nach Berlin fährt heute um zehn Uhr ab. Bitte gehen Sie zu Gleis drei.",
-                    "10 Uhr", "8 Uhr", "12 Uhr", "10 Uhr"},
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
 
-            {"Arzt",
-                    "Guten Tag. Ihr Termin beim Arzt ist am Montag um neun Uhr.",
-                    "Montag", "Dienstag", "Freitag", "Montag"},
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
-            {"Supermarkt",
-                    "Entschuldigung, wo ist die Milch? — Die Milch ist dort, neben dem Käse.",
-                    "Neben dem Käse", "Neben dem Brot", "Bei der Kasse", "Neben dem Käse"},
+      - name: Extract Android project
+        shell: bash
+        run: |
+          set -e
 
-            {"Telefon",
-                    "Hallo Maria, ich komme heute um sechs Uhr. Wir treffen uns vor dem Kino.",
-                    "6 Uhr", "5 Uhr", "7 Uhr", "6 Uhr"},
+          ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)"
 
-            {"Wetter",
-                    "Heute ist es kalt und regnet. Morgen scheint die Sonne.",
-                    "Morgen scheint die Sonne",
-                    "Heute ist es heiß",
-                    "Morgen schneit es",
-                    "Morgen scheint die Sonne"},
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Android project ZIP not found"
+            exit 1
+          fi
 
-            {"Einkaufen",
-                    "Ich brauche zwei Brötchen und ein Kilo Äpfel.",
-                    "Zwei Brötchen und ein Kilo Äpfel",
-                    "Ein Brot und zwei Bananen",
-                    "Drei Brötchen",
-                    "Zwei Brötchen und ein Kilo Äpfel"},
+          echo "Found: $ZIP_FILE"
 
-            {"Familie",
-                    "Mein Bruder heißt Ali. Er ist 18 Jahre alt.",
-                    "18", "16", "20", "18"},
+          rm -rf DeutschA1Build
+          mkdir -p DeutschA1Build
 
-            {"Bus",
-                    "Der Bus Nummer fünf fährt zum Bahnhof.",
-                    "5", "4", "6", "5"},
+          unzip -q "$ZIP_FILE" -d DeutschA1Build/extracted
 
-            {"Arbeit",
+          PROJECT_DIR="$(find DeutschA1Build/extracted \
+            -type f \
+            -name settings.gradle \
+            -printf '%h\n' | head -n 1)"
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "settings.gradle not found inside ZIP"
+            exit 1
+          fi
+
+          echo "Project directory: $PROJECT_DIR"
+
+          cp -R "$PROJECT_DIR"/. DeutschA1Build/
+
+          test -f DeutschA1Build/settings.gradle
+          test -f DeutschA1Build/build.gradle
+          test -d DeutschA1Build/app
+
+      - name: Verify A1 vocabulary
+        shell: bash
+        run: |
+          set -e
+
+          python3 - <<'PY'
+          import json
+
+          p = "DeutschA1Build/app/src/main/assets/words.json"
+
+          with open(p, encoding="utf-8") as f:
+              data = json.load(f)
+
+          assert len(data) == 1000, f"Expected 1000 words, found {len(data)}"
+
+          unique = {
+              x["de"].strip().lower()
+              for x in data
+          }
+
+          assert len(unique) == 1000, "Vocabulary contains duplicate German words"
+
+          print("Verified exactly 1000 unique vocabulary entries")
+          PY
+
+      - name: Build Debug APK
+        shell: bash
+        run: |
+          set -e
+
+          cd DeutschA1Build
+
+          gradle clean assembleDebug \
+            --no-daemon \
+            --stacktrace
+
+          test -f app/build/outputs/apk/debug/app-debug.apk
+
+          echo "APK successfully built"
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeutschA1-Premium-APK
+          path: DeutschA1Build/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
